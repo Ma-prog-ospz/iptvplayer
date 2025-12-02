@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+<meta charset="UTF-8">
+<title>IPTV Player</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #0f0f0f;
+        margin: 0; padding: 0;
+        color: #fff;
+        display: flex;
+        height: 100vh;
+    }
+    #sidebar {
+        width: 280px;
+        background: #181818;
+        overflow-y: auto;
+        border-right: 2px solid #202020;
+    }
+    .category {
+        padding: 12px 15px;
+        background: #202020;
+        font-weight: bold;
+        cursor: pointer;
+        margin-top: 8px;
+    }
+    .category:hover {
+        background: #292929;
+    }
+    .channel {
+        padding: 10px 20px;
+        border-bottom: 1px solid #272727;
+        cursor: pointer;
+    }
+    .channel:hover {
+        background: #333;
+    }
+    #player {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: #000;
+    }
+    video {
+        width: 95%;
+        max-width: 1400px;
+        border-radius: 10px;
+        background: #000;
+    }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+    <div class="category" onclick="loadCategory('sports')">🏆 Sports</div>
+    <div class="category" onclick="loadCategory('movies')">🎬 Movies</div>
+    <div class="category" onclick="loadCategory('news')">📰 News</div>
+    <div id="channel-list"></div>
+</div>
+
+<div id="player">
+    <video id="video" controls autoplay></video>
+</div>
+
+<script>
+    // ==============================
+    // TV LISTA (UBACI SVOJE M3U8 LINKOVE OVDJE)
+    // ==============================
+    const channels = {
+        sports: [
+            { name: "Sports Channel 1", url: "PASTE_M3U8_URL_HERE" },
+            { name: "Sports Channel 2", url: "PASTE_M3U8_URL_HERE" }
+        ],
+        movies: [
+            { name: "Movie Channel 1", url: "PASTE_M3U8_URL_HERE" }
+        ],
+        news: [
+            { name: "HRT 1", url: "http://tvip.zeroonemac.xyz:8080/play/live.php?mac=00:1A:79:6E:2A:7C&stream=797619&extension=m3u8&play_token=FNGmhjO0Dg" }
+        ]
+    };
+
+    // ==============================
+    // UI — učitavanje kategorije
+    // ==============================
+    function loadCategory(cat) {
+        const list = document.getElementById("channel-list");
+        list.innerHTML = "";
+
+        channels[cat].forEach(ch => {
+            let div = document.createElement("div");
+            div.className = "channel";
+            div.innerText = ch.name;
+            div.onclick = () => playChannel(ch.url);
+            list.appendChild(div);
+        });
+    }
+
+    // ==============================
+    // PLAYER — veliki buffer + auto recover
+    // ==============================
+    let hls;
+
+    function playChannel(url) {
+        const video = document.getElementById("video");
+
+        if (hls) {
+            hls.destroy();
+        }
+
+        if (video.canPlayType("application/vnd.apple.mpegurl")) {
+            // Safari native HLS
+            video.src = url;
+        } else {
+            hls = new Hls({
+                maxBufferLength: 60,      // 60 sekundi buffer
+                maxMaxBufferLength: 120,  // do 120 sekundi
+                liveSyncDuration: 10,
+                liveMaxLatencyDuration: 30,
+                enableWorker: true,
+                backBufferLength: 90
+            });
+            hls.loadSource(url);
+            hls.attachMedia(video);
+
+            // Auto error recovery
+            hls.on(Hls.Events.ERROR, function (event, data) {
+                if (data.fatal) {
+                    if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                        console.log("Network error — reconnecting…");
+                        hls.startLoad();
+                    } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                        console.log("Media error — recovering…");
+                        hls.recoverMediaError();
+                    } else {
+                        hls.destroy();
+                    }
+                }
+            });
+        }
+    }
+
+    // Po defaultu otvori sports kategoriju
+    loadCategory("news");
+</script>
+
+</body>
+</html>
